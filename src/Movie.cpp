@@ -233,10 +233,10 @@ void Movie::update()
 {
     const bool refresh = m_currentFrame == nullptr || m_forceRefreshCurrentFrame;
 
-    if ( refresh && m_cpuFrameBuffer.empty() ) bufferNextCPUSample();
+    if ( refresh || !m_cpuFrameBuffer.is_full()) bufferNextCPUSample();
     bufferNextGPUSample();
 
-    const auto nextFrameAt = m_lastFrameQueuedAt + chrono::duration_cast< clock::duration >( m_spf / m_playbackRate );
+    const auto nextFrameAt = m_lastFrameQueuedAt + chrono::duration_cast< clock::duration >( m_spf / (m_playbackRate - floor(m_playbackRate - 1.0f)) );
 
     auto now = clock::now();
     if ( ( now >= nextFrameAt || refresh ) && ! m_gpuFrameBuffer.empty() ) {
@@ -253,6 +253,7 @@ void Movie::update()
 
             else {
                 cerr << "Frame not buffered, dropping." << endl;
+                //m_gpuFrameBuffer.try_push(frame);
             }
         }
     }
@@ -265,7 +266,7 @@ void Movie::bufferNextCPUSample()
         auto frame = getFrame( m_videoTrack, m_readSample );
         if ( frame && m_cpuFrameBuffer.try_push( frame ) ) {
 
-            m_readSample++;
+            m_readSample += floor(m_playbackRate);
             if ( m_loop ) m_readSample = m_readSample % m_numSamples;
         }
     }
