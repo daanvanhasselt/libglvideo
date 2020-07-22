@@ -186,6 +186,7 @@ private:
     AP4_Track * m_videoTrack = nullptr;
     float m_fps;
     std::chrono::duration< float > m_spf;
+    double m_fpf;
     float m_playbackRate = 1.f;
     uint32_t m_width = 0;
     uint32_t m_height = 0;
@@ -214,7 +215,15 @@ private:
 	std::condition_variable m_jobsPendingCV;
 	std::mutex m_jobsMutex;
 	std::atomic_bool m_loop{ false };
-	std::atomic< size_t > m_readSample{ 0 };
+	//std::atomic< size_t > m_readSample{ 0 };
+    std::atomic< double > m_readFraction = 0.;
+    void incrementReadFraction(double increment) {
+            auto current = m_readFraction.load();
+            while (!m_readFraction.compare_exchange_weak(current, current + increment))
+                ;
+    }
+    size_t getReadSample() const { return (size_t)((double)m_readFraction * (double)m_numSamples); }
+
 	concurrent_buffer< Frame::ref > m_cpuFrameBuffer;
     concurrent_buffer< Frame::ref > m_gpuFrameBuffer;
 	clock::time_point m_lastFrameQueuedAt;

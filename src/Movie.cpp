@@ -58,6 +58,7 @@ Movie::Movie( const Context::ref &context, const string &filename, const Options
 			m_numSamples = m_videoTrack->GetSampleCount();
             m_fps = 1000.f * (float)m_numSamples / (float)m_videoTrack->GetDurationMs();
             m_spf = decltype( m_spf )( 1.f / m_fps );
+            m_fpf = 1.f / (double)m_numSamples;
             m_codec = getTrackCodec( m_videoTrack );
         }
 
@@ -236,7 +237,7 @@ void Movie::update()
     if ( refresh || !m_cpuFrameBuffer.is_full()) bufferNextCPUSample();
     bufferNextGPUSample();
 
-    const auto nextFrameAt = m_lastFrameQueuedAt + chrono::duration_cast< clock::duration >( m_spf / (m_playbackRate - floor(m_playbackRate - 1.0f)) );
+    const auto nextFrameAt = m_lastFrameQueuedAt + chrono::duration_cast< clock::duration >( m_spf / m_playbackRate );
 
     auto now = clock::now();
     if ( ( now >= nextFrameAt || refresh ) && ! m_gpuFrameBuffer.empty() ) {
@@ -261,13 +262,17 @@ void Movie::update()
 
 void Movie::bufferNextCPUSample()
 {
-    if ( ! m_cpuFrameBuffer.is_full() && m_readSample < m_numSamples ) {
+    if ( ! m_cpuFrameBuffer.is_full()) {
 
-        auto frame = getFrame( m_videoTrack, m_readSample );
-        if ( frame && m_cpuFrameBuffer.try_push( frame ) ) {
+        auto frame = getFrame( m_videoTrack, getReadSample() );
+        if ( frame && m_cpuFrameBuffer.try_push( frame ) && !(!m_loop && m_readFraction > 1) ) {
 
-            m_readSample += floor(m_playbackRate);
-            if ( m_loop ) m_readSample = m_readSample % m_numSamples;
+            incrementReadFraction(m_fpf * m_playbackRate);
+            if ( m_loop ) {
+                while (m_readFraction >= 1) {
+                    incrementReadFraction(-1.);
+                }
+            }
         }
     }
 }
@@ -342,10 +347,10 @@ Movie & Movie::seek( seconds time )
 
 Movie & Movie::seekToSample( size_t sample )
 {
-    if ( sample == m_readSample ) return *this;
+    if ( sample == getReadSample() ) return *this;
     if ( sample >= m_numSamples ) sample = m_numSamples - 1;
 
-    m_readSample = sample;
+    m_readFraction = sample / (double)m_numSamples;
 
     m_cpuFrameBuffer.clear();
     m_forceRefreshCurrentFrame = true;
