@@ -267,10 +267,12 @@ void Movie::bufferNextCPUSample()
         auto frame = getFrame( m_videoTrack, getReadSample() );
         if ( frame && m_cpuFrameBuffer.try_push( frame ) && !(!m_loop && m_readFraction > 1) ) {
 
-            incrementReadFraction(m_fpf * m_playbackRate);
-            if ( m_loop ) {
-                while (m_readFraction >= 1) {
-                    incrementReadFraction(-1.);
+            if (m_isPlaying) {
+                incrementReadFraction(m_fpf * m_playbackRate);
+                if (m_loop) {
+                    while (m_readFraction >= 1) {
+                        incrementReadFraction(-1.);
+                    }
                 }
             }
         }
