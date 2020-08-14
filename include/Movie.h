@@ -118,6 +118,9 @@ public:
     /// Returns the position of the playhead in seconds.
     seconds getElapsedTime() const;
 
+    // Returns the current sample index
+    size_t getElapsedSamples() const;
+
 	/// Returns the remaining amount of time in seconds.
 	seconds getRemainingTime() const;
 
